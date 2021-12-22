@@ -120,8 +120,18 @@ pub const ShaderCompileStep = struct {
     fn make(step: *Step) !void {
         const self = @fieldParentPtr(ShaderCompileStep, "step", step);
         const cwd = std.fs.cwd();
-        cwd.makePath(self.shader_out_path) catch unreachable;
-        cwd.makePath(self.package_out_path) catch unreachable;
+        cwd.makePath(self.shader_out_path) catch |e| {
+            std.log.err("shader out path: {}", .{e});
+            if (e != error.PathAlreadyExists) {
+                unreachable;
+            }
+        };
+        cwd.makePath(self.package_out_path) catch |e| {
+            std.log.err("package path: {}", .{e});
+            if (e != error.PathAlreadyExists) {
+                unreachable;
+            }
+        };
 
         const cmd = try self.builder.allocator.alloc([]const u8, self.shdc_cmd.len + 3);
         for (self.shdc_cmd) |part, i| cmd[i] = part;
@@ -304,7 +314,8 @@ pub const ShaderCompileStep = struct {
 
                 if (uses_default_vs) {
                     // we may have a relative path if the Options were given a relative output path for the shader or package
-                    if (std.fs.path.isAbsolute(entry.path)) try std.fs.deleteFileAbsolute(entry.path) else try std.fs.cwd().deleteFile(entry.path);
+                    std.log.info("{s}", .{entry.path});
+                    if (std.fs.path.isAbsolute(entry.path)) try std.fs.deleteFileAbsolute(entry.path) else try entry.dir.deleteFile(entry.path);
                 }
             }
         }
